@@ -81,20 +81,42 @@
 				m_camera.add( listener );
 
 				// create a global audio source
-				const sound = new THREE.Audio( listener );
+				
 
 				// load a sound and set it as the Audio object's buffer
 				const audioLoader = new THREE.AudioLoader();
-				audioLoader.load( PATH_ASSETS+'classic.mp3', function( buffer ) {
+				function audioLoad(buffer)
+				{
+					const sound = new THREE.Audio( listener );
 					sound.setBuffer( buffer );
-					sound.setLoop( true );
+					sound.setLoop( false );
 					sound.setVolume( 0.5 );
-					//sound.play();
-					m_application_state.audio_loaded = true
-					var vrButton = document.getElementById("VRButton");
-					vrButton.addEventListener( 'click', function ( event ) { sound.play()} );
-				});
-
+					m_songs.push(sound)
+					sound.onEnded = function() {
+					    this.isPlaying = false; /* sets Three wrapper property correctly */
+					    m_application_state.playing_index +=1
+					    if(m_application_state.playing_index >= SONG_NAMES.length)
+					    	m_application_state.playing_index = 0
+					    m_songs[m_application_state.playing_index].play()
+					};
+					m_application_state.songs_loaded +=1
+					if(m_application_state.songs_loaded >= SONG_NAMES.length)
+						m_application_state.audio_loaded = true
+				}
+				for(var i=0; i < SONG_NAMES.length; ++i)
+				{
+					audioLoader.load( PATH_ASSETS+SONG_NAMES[i]+'.mp3', audioLoad);
+				}
+				
+				var vrButton = document.getElementById("VRButton");
+				vrButton.addEventListener( 'click', function ( event ) { 
+					if(!m_application_state.is_playing_audio)
+					{
+						m_application_state.is_playing_audio = true
+						m_songs[m_application_state.playing_index].play()
+					}
+					
+				} );
 
 				m_application_state.three_js_inited = true
 				animate();

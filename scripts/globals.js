@@ -18,11 +18,17 @@ const PATH_SCENE_MODEL = "models/scenes/";
 const PATH_SCENE_ASSETS = "models/assets/";
 const PATH_ASSETS = "assets/";
 const VR_ENABLED = true;
+
+const SONG_NAMES = ["classic", "classic2", "sims2build", "sims2buy"]
 var m_application_state = 
 {
 	state: AppStates.THREE_JS_INIT,
 	three_js_inited: false,
 	audio_loaded: false,
+	is_playing_audio: false,
+	playing_index: 0,
+	songs_loaded: 0,
+
 }
 let m_controls;
 let m_renderer;
@@ -33,3 +39,4 @@ let m_camera;
 let m_container;
 let m_instances = [];
 let m_VRControls;
+let m_songs = [];
