@@ -1,0 +1,291 @@
+
+<html lang="en">
+	<head>
+		<title>VR HOME</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<link type="text/css" rel="stylesheet" href="main.css">
+	</head>
+	<body>
+		<div class=container4 id="loadingTextContainer">
+		  <p id="loadingText">Loading: 0% 
+		</div>
+
+		<script src="modules/FileSaver.js"></script>
+ 		<script src="scripts/globals.js"></script>
+		<script type="module">
+			import * as THREE from '../build/three.module.js';
+			import { PLYLoader } from './jsm/loaders/PLYLoader.js';
+			import { VRButton } from './jsm/webxr/VRButton.js';
+			import { XRControllerModelFactory } from './jsm/webxr/XRControllerModelFactory.js';
+			import { SceneModel} from './scripts/SceneModel.js';
+			import { AssetModel} from './scripts/AssetModel.js';
+			import { VRControls} from './scripts/VRControls.js';
+			import { OrbitControls } from './jsm/controls/CustomOrbitControls.js';
+			import { loadObjectJSON, loadJSON} from './scripts/utils.js';
+
+			var m_manager = new THREE.LoadingManager();
+			
+
+			
+			const m_clock = new THREE.Clock();
+			init();
+			
+			function init() {
+				m_container = document.createElement( 'div' );
+				
+				document.body.appendChild( m_container );
+				
+				m_scene = new THREE.Scene();
+				//m_scene.background = new THREE.Color( 0x72645b );
+				m_scene.fog = new THREE.Fog( 0x72645b, 2, 15 );
+
+				m_camera = new THREE.PerspectiveCamera( 35, window.innerWidth / window.innerHeight, 0.1, 100 );
+
+				// m_renderer
+				var canvas = document.getElementById("canvas");
+				m_renderer = new THREE.WebGLRenderer( { antialias: true, alpha: true} );
+				m_renderer.setPixelRatio( window.devicePixelRatio );
+				m_renderer.setSize( window.innerWidth, window.innerHeight );
+				m_renderer.outputEncoding = THREE.sRGBEncoding;
+				m_renderer.setClearColor(0xffffff, 0);
+				//m_renderer.shadowMap.enabled = true;
+				
+				m_renderer.xr.enabled = true;
+				m_renderer.xr.setReferenceSpaceType( 'local' );
+				m_renderer.setAnimationLoop( loop );
+				
+				m_container.appendChild( m_renderer.domElement );
+
+				document.body.appendChild( VRButton.createButton( m_renderer) );
+				
+				window.addEventListener( 'resize', onWindowResize );
+				
+
+				//Controls
+				m_controls = new OrbitControls( m_camera, m_renderer.domElement );
+				m_controls.minPolarAngle =  - Infinity; // radians
+				m_controls.maxPolarAngle = Infinity; // radians
+				m_controls.minDistance = 1;
+				m_controls.maxDistance = 30;
+				m_controls.minAzimuthAngle = - Infinity; // radians
+				m_controls.maxAzimuthAngle = Infinity; // radians
+
+				//VR
+				if(VR_ENABLED)
+					m_VRControls = new VRControls(m_scene,m_renderer, m_camera)
+				//End
+
+				//Sound
+				const listener = new THREE.AudioListener();
+				m_camera.add( listener );
+
+				// create a global audio source
+				const sound = new THREE.Audio( listener );
+
+				// load a sound and set it as the Audio object's buffer
+				const audioLoader = new THREE.AudioLoader();
+				audioLoader.load( PATH_ASSETS+'classic.mp3', function( buffer ) {
+					sound.setBuffer( buffer );
+					sound.setLoop( true );
+					sound.setVolume( 0.5 );
+					//sound.play();
+					m_application_state.audio_loaded = true
+					var vrButton = document.getElementById("VRButton");
+					vrButton.addEventListener( 'click', function ( event ) { sound.play()} );
+				});
+
+
+				m_application_state.three_js_inited = true
+				animate();
+			}
+
+			
+			function loadAssets()
+			{
+				console.log("INFO: Loading ASSETS...")
+				function loadAssetJSON(jsonData)
+				{
+					for(var i=0; i < jsonData.assets.length;++i)
+					{
+						m_assetList.push(new AssetModel(PATH_SCENE_ASSETS))
+						loadObjectJSON(PATH_SCENE_ASSETS+jsonData.assets[i].name+"/model.json",m_assetList[i])
+					}
+				}
+
+				m_sceneModel = new SceneModel(PATH_SCENE_MODEL, m_scene)
+				loadObjectJSON(PATH_SCENE_MODEL+"scene.json",m_sceneModel)
+				loadJSON(PATH_SCENE_ASSETS+"instanceList.json",loadAssetJSON)
+
+			}
+			function generateInstances()
+			{
+				var instanceDescriptors = m_sceneModel.getAssets()
+				var aux = {}
+				for(var i=0; i < m_assetList.length;++i)
+				{
+					aux[m_assetList[i].getName()] = m_assetList[i]
+				}
+				m_assetList = aux
+				for(var i=0; i <instanceDescriptors.length;++i)
+				{
+					var asset = m_assetList[m_sceneModel.getNameAsset(i)]
+
+					asset.instanciate(instanceDescriptors[i], m_instances)
+				}
+			}
+			function generateScene()
+			{
+				console.log("INFO: Generating scene...")
+				m_scene.add( m_sceneModel.getMesh() );
+				for(var i=0; i < m_instances.length;++i)
+				{
+					console.log("INFO: Adding instance to scene...")
+					m_scene.add(m_instances[i])
+				}
+				m_scene.add( new THREE.HemisphereLight( 0x443333, 0x111122 ) );
+			}
+			function onWindowResize() {
+
+				m_camera.aspect = window.innerWidth / window.innerHeight;
+				m_camera.updateProjectionMatrix();
+				m_renderer.setSize( window.innerWidth, window.innerHeight );
+
+			}
+			
+			function updateVR(delta)
+			{
+				if(!VR_ENABLED)
+					return
+				m_VRControls.update(delta, m_instances, m_sceneModel)
+			}
+			function update()
+			{
+				const timer = Date.now() * 0.0005;
+				const delta = m_clock.getDelta();
+				requestAnimationFrame( animate );
+
+				switch(m_application_state.state)
+				{
+					case AppStates.READY_TO_GO:
+					{	
+
+						if(m_renderer.xr.isPresenting)
+						{
+							updateVR(delta)
+						}
+						else
+						{
+							m_controls.update();
+						}
+						break
+					}
+					case AppStates.THREE_JS_INIT:
+					{
+						if(m_application_state.three_js_inited)
+						{
+							m_application_state.state = AppStates.LOADING_ASSETS
+							loadAssets()
+						}
+						break
+					}
+					case AppStates.LOADING_ASSETS:
+					{
+						var num_models = m_assetList.length +1
+						num_models +=1 //Audio
+						if(VR_ENABLED)
+							num_models +=1 //VR assets
+
+						var loaded_models = 0
+
+						if(VR_ENABLED && m_VRControls.isLoaded())
+							loaded_models +=1
+						if(m_application_state.audio_loaded)
+							loaded_models +=1
+						for(var i = 0; i < m_assetList.length; i++)
+						{
+							if(m_assetList[i].isLoaded())
+							{
+								loaded_models += 1
+							}
+						}
+						if(m_sceneModel.isLoaded())
+						{
+							loaded_models += 1
+						}
+						if(loaded_models == num_models)
+						{
+							m_application_state.state = AppStates.LOADING_INSTANCES
+							generateInstances()
+							
+						}
+						else
+						{
+							document.getElementById("loadingText").innerHTML = "Loading assets: "+loaded_models+"/"+num_models;
+						}
+						break
+					}
+					case AppStates.LOADING_INSTANCES:
+					{
+
+						var num_models = m_sceneModel.getAssets().length
+						var loaded_models = m_instances.length
+						console.log("INFO: Loading instances instances: "+ loaded_models+ " "+ num_models)
+						if(loaded_models == num_models)
+						{
+							m_application_state.state = AppStates.LOADING_TEXTURES
+							generateScene()
+						}
+						else
+						{
+							document.getElementById("loadingText").innerHTML = "Loading instances: "+loaded_models+"/"+num_models;
+						}
+						break
+					}
+					case AppStates.LOADING_TEXTURES:
+					{
+						/*if(m_application_state.textures_loaded)
+						{*/
+							m_application_state.state = AppStates.LOADING_PRECOMPUTED_DATA
+						/*}*/
+						break
+					}
+					case AppStates.LOADING_PRECOMPUTED_DATA:
+					{
+						/*if(m_application_state.precomputed_file_loaded)
+						{*/
+							m_application_state.state = AppStates.READY_TO_GO
+							document.getElementById("loadingText").innerHTML = "";
+							document.getElementById("loadingTextContainer").style.visibility = "hidden";
+							console.log("INFO: System ready to go!")
+						/*}*/
+						break
+					}
+				}
+			}
+			function loop()
+			{
+				update();
+				render();
+			}
+			function animate() {
+				
+				//m_renderer.setAnimationLoop( loop );
+
+			}
+			function renderMainCamera()
+			{
+
+				m_renderer.setScissorTest( false );
+				m_renderer.render( m_scene, m_camera );
+			}
+			
+			function render() {
+
+				m_renderer.clear();
+				renderMainCamera();
+			}
+			
+		</script>	
+	</body>
+</html>
