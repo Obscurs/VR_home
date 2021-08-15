@@ -219,6 +219,19 @@ export class VRControls {
 	{
 		return controllerData.buttons[1] == 1
 	}
+	isStickButtonPressed(controllerData)
+	{
+		return controllerData.buttons[3] == 1
+	}
+	isAButtonPressed(controllerData)
+	{
+		return controllerData.buttons[4] == 1
+	}
+	isBButtonPressed(controllerData)
+	{
+		return controllerData.buttons[5] == 1
+	}
+
 
 	updateInstanceDragged(dt)
 	{
@@ -330,7 +343,6 @@ export class VRControls {
 	}
 	doJoystickEvents()
 	{
-		console.log(this.rightControllerData.axes[3])
 		if(this.rightControllerData.axes[3] < -0.5 && this.state == VRStates.IDLE)
 		{
 			this.startMovingUser(this.rightControllerData.controller)
@@ -342,17 +354,39 @@ export class VRControls {
 
 		
 	}
-	doInputEvents()
+	deleteInstance(instance, instances)
+	{
+		for(var i=0; i< instances.length; ++i)
+		{
+			if(instances[i] == instance.object)
+				instances.splice( i, 1 );
+		}
+		
+		
+		this.scene.remove(instance.object);
+		instance.object = null
+		instance = null
+	}
+	doInputEvents(instances)
 	{
 		if(this.rightControllerData != null && this.leftControllerData != null)
 			this.doJoystickEvents()
+		if(this.isAButtonPressed(this.rightControllerData))
+		{
+			if(this.state == VRStates.IDLE)
+			{
+				if(this.instancePointed != null && this.instancePointed.object.destroyable)
+					this.deleteInstance(this.instancePointed,instances)
+			}
+			
+		}
 		
 	}
 	update(dt, instances, sceneModel)
 	{
 
 		this.updateControllers()
-		this.doInputEvents()
+		this.doInputEvents(instances)
 		this.updatePointedObject(instances,sceneModel)
 		if(this.state == VRStates.DRAGGING)
 			this.updateInstanceDragged(dt)

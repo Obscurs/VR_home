@@ -5,6 +5,29 @@ export class AssetModel {
 	constructor(basePath) {
 		this.loaded = false
 		this.basePath = basePath
+		this.instancedPrototipe = false
+		this.prototypeMesh = null
+		this.category = "none"
+	}
+	loadPrototipe(path)
+	{
+		const loader = new PLYLoader();
+		var self = this
+		loader.load( path, function ( geometry ) {
+			//const material = new MeshBasicMaterial( { color: 0xffffff} );
+			const material = new MeshPhongMaterial( { color: 0xffffff, specular: 0x111111, shininess: 200, vertexColors: VertexColors} );
+			self.prototypeMesh = new Mesh( geometry, material );
+			self.prototypeMesh.name = self.name
+			self.prototypeMesh.geometry.computeBoundingBox();
+			var m2 = new Matrix4();
+			m2.makeRotationX(Math.degToRad(-90))
+
+			self.prototypeMesh.applyMatrix4(m2);
+
+
+			console.log("PROTOTYPE "+self.prototypeMesh.name+" LOADED")
+			self.instancedPrototipe = true
+		})
 	}
 	loadPLY(path, params, instances)
 	{
@@ -21,7 +44,7 @@ export class AssetModel {
 
 			mesh.applyMatrix4(m2);
 
-
+			mesh.destroyable = true
 			mesh.scale.x = params.scale
 			mesh.scale.y = params.scale
 			mesh.scale.z = params.scale
@@ -42,12 +65,14 @@ export class AssetModel {
 		console.log("INFO: Loading Asset from JSON...")
 		this.path = jsonData.path
 		this.name = jsonData.name
+		this.category = jsonData.type
+		this.loadPrototipe(this.basePath+this.path)
 		this.loaded = true
 		
 	}
 	isLoaded()
 	{
-		return this.loaded
+		return this.loaded && this.instancedPrototipe
 	}
 
 	instanciate(params, instances)
@@ -57,5 +82,9 @@ export class AssetModel {
 	getName()
 	{
 		return this.name
+	}
+	getPrototype()
+	{
+		return this.prototypeMesh
 	}
 }

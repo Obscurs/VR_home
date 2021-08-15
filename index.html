@@ -21,6 +21,7 @@
 			import { SceneModel} from './scripts/SceneModel.js';
 			import { AssetModel} from './scripts/AssetModel.js';
 			import { VRControls} from './scripts/VRControls.js';
+			import { SelectorUI} from './scripts/SelectorUI.js';
 			import { OrbitControls } from './jsm/controls/CustomOrbitControls.js';
 			import { loadObjectJSON, loadJSON} from './scripts/utils.js';
 
@@ -58,7 +59,8 @@
 				m_container.appendChild( m_renderer.domElement );
 
 				document.body.appendChild( VRButton.createButton( m_renderer) );
-				
+				document.getElementById("VRButton").disabled = true;
+				document.getElementById("VRButton").style.visibility = "hidden";
 				window.addEventListener( 'resize', onWindowResize );
 				
 
@@ -80,10 +82,6 @@
 				const listener = new THREE.AudioListener();
 				m_camera.add( listener );
 
-				// create a global audio source
-				
-
-				// load a sound and set it as the Audio object's buffer
 				const audioLoader = new THREE.AudioLoader();
 				function audioLoad(buffer)
 				{
@@ -113,10 +111,13 @@
 					if(!m_application_state.is_playing_audio)
 					{
 						m_application_state.is_playing_audio = true
-						m_songs[m_application_state.playing_index].play()
+						m_songs[1].play()
 					}
 					
 				} );
+
+				//Selector
+				m_selector = new SelectorUI(m_scene)
 
 				m_application_state.three_js_inited = true
 				animate();
@@ -133,6 +134,7 @@
 						m_assetList.push(new AssetModel(PATH_SCENE_ASSETS))
 						loadObjectJSON(PATH_SCENE_ASSETS+jsonData.assets[i].name+"/model.json",m_assetList[i])
 					}
+					m_application_state.json_assets_loaded = true;
 				}
 
 				m_sceneModel = new SceneModel(PATH_SCENE_MODEL, m_scene)
@@ -155,6 +157,7 @@
 
 					asset.instanciate(instanceDescriptors[i], m_instances)
 				}
+				
 			}
 			function generateScene()
 			{
@@ -166,6 +169,8 @@
 					m_scene.add(m_instances[i])
 				}
 				m_scene.add( new THREE.HemisphereLight( 0x443333, 0x111122 ) );
+				//Selector
+				m_selector.generateCollection(m_assetList)
 			}
 			function onWindowResize() {
 
@@ -206,45 +211,54 @@
 					{
 						if(m_application_state.three_js_inited)
 						{
-							m_application_state.state = AppStates.LOADING_ASSETS
 							loadAssets()
+							m_application_state.state = AppStates.LOADING_ASSETS
+							
 						}
 						break
 					}
 					case AppStates.LOADING_ASSETS:
 					{
-						var num_models = m_assetList.length +1
-						num_models +=1 //Audio
-						if(VR_ENABLED)
-							num_models +=1 //VR assets
-
-						var loaded_models = 0
-
-						if(VR_ENABLED && m_VRControls.isLoaded())
-							loaded_models +=1
-						if(m_application_state.audio_loaded)
-							loaded_models +=1
-						for(var i = 0; i < m_assetList.length; i++)
+						if(m_application_state.json_assets_loaded)
 						{
-							if(m_assetList[i].isLoaded())
+							var num_models = m_assetList.length +1
+							num_models +=1 //Audio
+							if(VR_ENABLED)
+								num_models +=1 //VR assets
+
+							var loaded_models = 0
+
+							if(VR_ENABLED && m_VRControls.isLoaded())
+								loaded_models +=1
+							if(m_application_state.audio_loaded)
+								loaded_models +=1
+							for(var i = 0; i < m_assetList.length; i++)
+							{
+								if(m_assetList[i].isLoaded())
+								{
+									loaded_models += 1
+								}
+							}
+							if(m_sceneModel.isLoaded())
 							{
 								loaded_models += 1
 							}
-						}
-						if(m_sceneModel.isLoaded())
-						{
-							loaded_models += 1
-						}
-						if(loaded_models == num_models)
-						{
-							m_application_state.state = AppStates.LOADING_INSTANCES
-							generateInstances()
-							
+							if(loaded_models == num_models)
+							{
+								m_application_state.state = AppStates.LOADING_INSTANCES
+								generateInstances()
+								
+							}
+							else
+							{
+								document.getElementById("loadingText").innerHTML = "Loading assets: "+loaded_models+"/"+num_models;
+							}
 						}
 						else
 						{
-							document.getElementById("loadingText").innerHTML = "Loading assets: "+loaded_models+"/"+num_models;
+							document.getElementById("loadingText").innerHTML = "Loading assets..."
 						}
+						
 						break
 					}
 					case AppStates.LOADING_INSTANCES:
@@ -279,6 +293,8 @@
 							m_application_state.state = AppStates.READY_TO_GO
 							document.getElementById("loadingText").innerHTML = "";
 							document.getElementById("loadingTextContainer").style.visibility = "hidden";
+							document.getElementById("VRButton").disabled = false;
+							document.getElementById("VRButton").style.visibility = "visible";
 							console.log("INFO: System ready to go!")
 						/*}*/
 						break

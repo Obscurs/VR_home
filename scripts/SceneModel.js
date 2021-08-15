@@ -8,6 +8,7 @@ export class SceneModel {
 		this.instanciated = false
 		this.basePath = basePath
 		this.scene = scene
+		this.cubemapLoaded = false
 	}
 	loadPLY(path)
 	{
@@ -20,6 +21,7 @@ export class SceneModel {
 			const material = new MeshPhongMaterial( { color: 0xffffff, specular: 0x111111, shininess: 200, map: texture} );
 			self.mesh = new Mesh( geometry, material );
 			self.mesh.name = SCENE_MODEL_NAME
+			self.mesh.destroyable = false
 			var m2 = new Matrix4();
 			m2.makeRotationX(Math.degToRad(-90))
 
@@ -33,6 +35,7 @@ export class SceneModel {
 	}
 	loadCubemap(path)
 	{
+		var self = this
 		this.scene.background = new CubeTextureLoader()
 		.setPath( path )
 		.load( [
@@ -42,7 +45,7 @@ export class SceneModel {
 			'ny.png',
 			'pz.png',
 			'nz.png'
-		] );
+		], function(tex){self.cubemapLoaded = true });
 	}
 	loadFromJSON(jsonData)
 	{
@@ -58,7 +61,7 @@ export class SceneModel {
 	}
 	isLoaded()
 	{
-		return this.loaded && this.instanciated && this.textureLoaded
+		return this.loaded && this.instanciated && this.textureLoaded && this.cubemapLoaded
 	}
 	getMesh()
 	{
