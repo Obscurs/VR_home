@@ -49,6 +49,7 @@
 				m_renderer.setPixelRatio( window.devicePixelRatio );
 				m_renderer.setSize( window.innerWidth, window.innerHeight );
 				m_renderer.outputEncoding = THREE.sRGBEncoding;
+				m_renderer.shadowMap.enabled = true;
 				m_renderer.setClearColor(0xffffff, 0);
 				//m_renderer.shadowMap.enabled = true;
 				
@@ -161,6 +162,29 @@
 				}
 				
 			}
+			function addShadowedLight( x, y, z, color, intensity ) {
+
+				const directionalLight = new THREE.DirectionalLight( color, intensity );
+				directionalLight.position.set( x, y, z );
+				m_scene.add( directionalLight );
+
+				directionalLight.castShadow = true;
+
+				const d = 1;
+				directionalLight.shadow.camera.left = - d;
+				directionalLight.shadow.camera.right = d;
+				directionalLight.shadow.camera.top = d;
+				directionalLight.shadow.camera.bottom = - d;
+
+				directionalLight.shadow.camera.near = 1;
+				directionalLight.shadow.camera.far = 4;
+
+				directionalLight.shadow.mapSize.width = 1024;
+				directionalLight.shadow.mapSize.height = 1024;
+
+				directionalLight.shadow.bias = - 0.001;
+
+			}
 			function generateScene()
 			{
 				console.log("INFO: Generating scene...")
@@ -170,7 +194,16 @@
 					console.log("INFO: Adding instance to scene...")
 					m_scene.add(m_instances[i])
 				}
-				m_scene.add( new THREE.HemisphereLight( 0x443333, 0x111122 ) );
+				var light = new THREE.HemisphereLight( 0x443333, 0x111122 )
+				light.position.y=2
+				light.position.x=-5
+				light.position.z=-5
+				var helper = new THREE.HemisphereLightHelper(light,2);
+				light.add(helper)
+				//light.castShadow = true
+				m_scene.add(light  );
+				//addShadowedLight( 1, 1, 1, 0xffffff, 1.35 );
+				//addShadowedLight( 0.5, 1, - 1, 0xffaa00, 1 );
 				//Selector
 				m_selector.generateCollection(m_assetList)
 			}

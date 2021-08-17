@@ -249,22 +249,24 @@ export class VRControls {
 		if(this.instanceDragged != null &&  this.instancePointed != null)
 		{
 			this.instanceDragged.object.position.copy(this.instancePointed.point)
-			var mesh = this.instanceDragged.object
+			var instance = this.instanceDragged.object
 
 			var auxVec = new THREE.Vector3()
 			auxVec.x = this.instancePointed.normal.x
 			auxVec.y = this.instancePointed.normal.y
 			auxVec.z = this.instancePointed.normal.z
 			auxVec.multiplyScalar(0.02)
-			while(this.checkCollision(this.colPlane,mesh))
+			var maxCount = 0
+			while(this.checkCollisionMeshGroup(this.colPlane,instance) && maxCount < 100)
 			{
 				
-				mesh.position.add(auxVec)
-				mesh.translateOnAxis(auxVec, 0.02);
+				instance.position.add(auxVec)
+				instance.translateOnAxis(auxVec, 0.02);
+				maxCount +=1
 			}
 
 			if(this.isInnerTriggerPressed(this.rightControllerData))
-				mesh.rotation.z += dt
+				instance.rotation.z += dt
 			
 		}
 	}
@@ -279,6 +281,23 @@ export class VRControls {
 
 		return bounding1.intersectsBox(bounding2)
 	}
+	checkCollisionMeshGroup(mesh1, group)
+	{
+		mesh1.updateMatrixWorld();
+		group.updateMatrixWorld();
+		var bounding1 = mesh1.geometry.boundingBox.clone();
+		bounding1.applyMatrix4(mesh1.matrixWorld);
+		console.log(group)
+		var bounding2 = group.boundingBox.clone();
+		bounding2.applyMatrix4(group.matrixWorld);
+		bounding2.name = "bboox"
+		/*if(this.scene.children[this.scene.children.length-1].name == "bboox")
+			this.scene.remove(scene.children[this.scene.children.length-1])
+		this.scene.add(bounding2)*/
+		console.log(group.boundingBox.max.x)
+		return bounding1.intersectsBox(bounding2)
+	}
+
 	updatePointedObject(instances, sceneModel)
 	{
 		if(this.rightControllerData != null)
@@ -293,11 +312,15 @@ export class VRControls {
 			    var models = [sceneModel.getMesh()]
 			    for(var i=0; i < instances.length; i++)
 			    {
-			    	models.push(instances[i])
+			    	//TODO do something with these children[0]
+			    	models.push(instances[i].children[0])
 			    }
+			    //TODO do something with these children[0]
 			    if(this.instanceDragged !=null)
-			    	exceptions.push(this.instanceDragged.object)
+			    	exceptions.push(this.instanceDragged.object.children[0])
 			    this.instancePointed = getFirstIntersection(models,exceptions, pos, dir)
+			    if(this.instancePointed != null && this.instancePointed.object.name != "" && this.instancePointed.object.name == this.instancePointed.object.parent.name)
+			    	this.instancePointed.object = this.instancePointed.object.parent
 			    if(this.instancePointed != null)
 			    {
 			    	this.colPlane.position.copy(this.instancePointed.point)

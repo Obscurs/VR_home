@@ -18,7 +18,7 @@ export class SceneModel {
 			//const material = new MeshBasicMaterial( { color: 0xffffff} );
 			var texture = new TextureLoader().load(self.basePath+self.textureName, function(tex){self.textureLoaded = true});
 			//var material = new MeshNormalMaterial({ map: texture, flatShading: true });
-			const material = new MeshPhongMaterial( { color: 0xffffff, specular: 0x111111, shininess: 200, map: texture} );
+			const material = new MeshPhongMaterial( { color: 0xffffff, flatShading: true, specular: 0x111111, shininess: 200, map: texture} );
 			self.mesh = new Mesh( geometry, material );
 			self.mesh.name = SCENE_MODEL_NAME
 			self.mesh.destroyable = false
@@ -26,6 +26,8 @@ export class SceneModel {
 			m2.makeRotationX(Math.degToRad(-90))
 
 			self.mesh.applyMatrix4(m2);
+			self.mesh.castShadow = true;
+			self.mesh.receiveShadow = true;
 
 			self.instanciated = true
 

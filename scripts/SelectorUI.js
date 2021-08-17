@@ -36,10 +36,10 @@ export class SelectorUI {
 		item.scale.y = item.baseScale*scale
 		item.scale.z = item.baseScale*scale
 	}
-	createCollectionItem(mesh, index)
+	createCollectionItem(item, index)
 	{
 		var itemGroup = new THREE.Group()
-		itemGroup.add(mesh)
+		itemGroup.add(item)
 
 		const aabb = new THREE.Box3();
 		aabb.setFromObject(itemGroup);
