@@ -73,10 +73,7 @@
 				m_controls.minAzimuthAngle = - Infinity; // radians
 				m_controls.maxAzimuthAngle = Infinity; // radians
 
-				//VR
-				if(VR_ENABLED)
-					m_VRControls = new VRControls(m_scene,m_renderer, m_camera)
-				//End
+				
 
 				//Sound
 				const listener = new THREE.AudioListener();
@@ -119,6 +116,11 @@
 				//Selector
 				m_selector = new SelectorUI(m_scene)
 
+				//VR
+				if(VR_ENABLED)
+					m_VRControls = new VRControls(m_scene,m_renderer, m_camera, m_selector)
+				//End
+
 				m_application_state.three_js_inited = true
 				animate();
 			}
@@ -155,7 +157,7 @@
 				{
 					var asset = m_assetList[m_sceneModel.getNameAsset(i)]
 
-					asset.instanciate(instanceDescriptors[i], m_instances)
+					asset.instanciate(instanceDescriptors[i], m_instances, null)
 				}
 				
 			}
@@ -185,6 +187,14 @@
 				if(!VR_ENABLED)
 					return
 				m_VRControls.update(delta, m_instances, m_sceneModel)
+				var assetDesc = m_VRControls.getPendingAssetInstance()
+				if(assetDesc != null)
+				{
+					console.log(assetDesc)
+					var asset = m_assetList[assetDesc.name]
+					asset.instanciate(assetDesc, m_instances, m_scene)
+					m_VRControls.nullifyPendingAssetInstance()
+				}
 			}
 			function update()
 			{

@@ -3,8 +3,17 @@ import * as THREE from '../build/three.module.js';
 import { positionAtT, getFirstIntersection} from './utils.js';
 import { XRControllerModelFactory } from '../jsm/webxr/XRControllerModelFactory.js';
 import { PLYLoader } from '../jsm/loaders/PLYLoader.js';
+const VRStates =
+{
+	IDLE: "idle_state",
+	DRAGGING: "drag_state",
+	MOVING: "move_state",
+	SHOWING_UI: "ui_state",
+	DELETING_ITEM: "deleting_state",
+}
+const HEIGHT_OFFSET = 1.6
 export class VRControls {
-	constructor(scene, renderer, camera) {
+	constructor(scene, renderer, camera, selector) {
 		this.loaded = false
 
 		this.g = null
@@ -27,12 +36,14 @@ export class VRControls {
 		this.scene = scene
 		this.renderer = renderer
 		this.camera = camera
+		this.selector = selector
 		this.camera_group.position.set(0,HEIGHT_OFFSET,0)
 		this.camera_group.add(this.camera)
 		this.state = VRStates.IDLE
 		this.instancePointed = null
 		this.instanceDragged = null
 
+		this.pendingAssetInstance = null
 		this.leftControllerData = null
 		this.rightControllerData = null
 
@@ -369,16 +380,63 @@ export class VRControls {
 	}
 	doInputEvents(instances)
 	{
-		if(this.rightControllerData != null && this.leftControllerData != null)
-			this.doJoystickEvents()
+		if(this.rightControllerData == null/* || this.leftControllerData == null*/)
+			return
+		this.doJoystickEvents()
 		if(this.isAButtonPressed(this.rightControllerData))
 		{
 			if(this.state == VRStates.IDLE)
 			{
 				if(this.instancePointed != null && this.instancePointed.object.destroyable)
 					this.deleteInstance(this.instancePointed,instances)
+				this.state = VRStates.DELETING_ITEM
 			}
-			
+		}
+		else
+		{
+			if(this.state == VRStates.DELETING_ITEM)
+				this.state = VRStates.IDLE
+		}
+		if(this.isStickButtonPressed(this.rightControllerData))
+		{
+			if(this.state == VRStates.IDLE)
+			{
+				//Show UI
+				var pos = new THREE.Vector3()
+				var dir = new THREE.Vector3()
+				this.rightControllerData.controller.getWorldPosition(pos);
+			    this.rightControllerData.controller.getWorldDirection(dir);
+				this.selector.showUI(pos, dir)
+				this.state = VRStates.SHOWING_UI
+			}
+		}
+		else
+		{
+			if(this.state == VRStates.SHOWING_UI)
+			{
+				//hide UI
+				
+				this.selector.hideUI()
+				var selectedItem = this.selector.getSelectedItem()
+				//TODO Instanciate selected object
+				var asset = m_assetList[selectedItem.children[0].name]
+				var pos = new THREE.Vector3()
+				var dir = new THREE.Vector3()
+				this.rightControllerData.controller.getWorldDirection(dir);
+				this.rightControllerData.controller.getWorldPosition(pos)
+				this.pendingAssetInstance = {
+					name: asset.name,
+			        pos_x: pos.x-dir.x,
+			        pos_y: pos.y-dir.y,
+			        pos_z: pos.z-dir.z,
+			        scale: 1,
+			        rot_x: 0,
+			        rot_y: 0,
+			        rot_z: 0
+				}
+
+				this.state = VRStates.IDLE
+			}
 		}
 		
 	}
@@ -390,6 +448,12 @@ export class VRControls {
 		this.updatePointedObject(instances,sceneModel)
 		if(this.state == VRStates.DRAGGING)
 			this.updateInstanceDragged(dt)
+		if(this.state == VRStates.SHOWING_UI && this.rightControllerData != null)
+		{
+			var pos = new THREE.Vector3()
+			this.rightControllerData.controller.getWorldPosition(pos)
+			this.selector.updateUI(dt, pos)
+		}
 		/*const session = this.renderer.xr.getSession();
 		let i = 0;
 		if (session) {
@@ -497,5 +561,13 @@ export class VRControls {
 	moveVRCam(offset)
 	{
 		this.camera_group.position.add(offset)
+	}
+	getPendingAssetInstance()
+	{
+		return this.pendingAssetInstance
+	}
+	nullifyPendingAssetInstance()
+	{
+		this.pendingAssetInstance = null
 	}
 }

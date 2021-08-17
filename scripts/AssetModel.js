@@ -23,13 +23,16 @@ export class AssetModel {
 			m2.makeRotationX(Math.degToRad(-90))
 
 			self.prototypeMesh.applyMatrix4(m2);
-
+				
+			self.prototypeMesh.rotation.x += Math.degToRad(-30)
+			self.prototypeMesh.rotation.y += Math.degToRad(-30)
+			self.prototypeMesh.rotation.z += Math.degToRad(-30)
 
 			console.log("PROTOTYPE "+self.prototypeMesh.name+" LOADED")
 			self.instancedPrototipe = true
 		})
 	}
-	loadPLY(path, params, instances)
+	loadPLY(path, params, instances, scene)
 	{
 		const loader = new PLYLoader();
 		var self = this
@@ -58,6 +61,8 @@ export class AssetModel {
 			mesh.position.z = params.pos_z
 			console.log("PLY LOADED")
 			instances.push(mesh)
+			if(scene != null)
+				scene.add(mesh)
 		})
 	}
 	loadFromJSON(jsonData)
@@ -75,9 +80,9 @@ export class AssetModel {
 		return this.loaded && this.instancedPrototipe
 	}
 
-	instanciate(params, instances)
+	instanciate(params, instances, scene)
 	{
-		this.loadPLY(this.basePath+this.path, params, instances)
+		this.loadPLY(this.basePath+this.path, params, instances, scene)
 	}
 	getName()
 	{
