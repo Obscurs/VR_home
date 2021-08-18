@@ -23,6 +23,8 @@
 			import * as THREE from '../build/three.module.js';
 			import { PLYLoader } from './jsm/loaders/PLYLoader.js';
 			import { VRButton } from './jsm/webxr/VRButton.js';
+			import {EffectComposer} from './jsm/postprocessing/EffectComposer.js';
+			import {SSAOPass} from './jsm/postprocessing/SSAOPass.js';
 			import { XRControllerModelFactory } from './jsm/webxr/XRControllerModelFactory.js';
 			import { SceneModel} from './scripts/SceneModel.js';
 			import { AssetModel} from './scripts/AssetModel.js';
@@ -62,6 +64,12 @@
 				m_renderer.xr.enabled = true;
 				m_renderer.xr.setReferenceSpaceType( 'local' );
 				m_renderer.setAnimationLoop( loop );
+
+				m_composer = new EffectComposer(m_renderer)
+
+				const ssaoPass = new SSAOPass(m_scene, m_camera, window.innerWidth,window.innerHeight);
+				ssaoPass.kernelRadius = 16
+				m_composer.addPass(ssaoPass)
 				
 				m_container.appendChild( m_renderer.domElement );
 
@@ -197,6 +205,7 @@
 
 					asset.instanciate(instanceDescriptors[i], m_instances, null)
 				}
+				m_sceneModel.loadLights(m_scene)
 				
 			}
 			function addShadowedLight( x, y, z, color, intensity ) {
@@ -231,7 +240,7 @@
 					console.log("INFO: Adding instance to scene...")
 					m_scene.add(m_instances[i])
 				}
-				var light = new THREE.HemisphereLight( 0x443333, 0x111122 )
+				var light = new THREE.HemisphereLight( 0xFFEEB1, 0x080820, 1 )
 				light.position.y=2
 				light.position.x=-5
 				light.position.z=-5

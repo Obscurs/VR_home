@@ -1,6 +1,6 @@
 import { PLYLoader } from '../../jsm/loaders/PLYLoader.js';
 import { getDescriptorFromInstance, exportJSON} from './utils.js';
-import { MeshNormalMaterial,TextureLoader, MeshBasicMaterial,MeshPhongMaterial, VertexColors, Mesh, Matrix4, Math, CubeTextureLoader } from '../../build/three.module.js';
+import { MeshNormalMaterial,TextureLoader,PointLight, MeshBasicMaterial,MeshPhongMaterial, VertexColors, Mesh, Matrix4, Math, CubeTextureLoader } from '../../build/three.module.js';
 
 export class SceneModel {
 	constructor(basePath, scene) {
@@ -10,6 +10,7 @@ export class SceneModel {
 		this.basePath = basePath
 		this.scene = scene
 		this.cubemapLoaded = false
+		this.lights = null
 	}
 	loadPLY(path)
 	{
@@ -36,6 +37,17 @@ export class SceneModel {
 
 		})
 	}
+	loadLights(scene)
+	{
+		for(var i=0; i < this.lights.length; ++i)
+		{
+			var lightDesc = this.lights[i]
+			var intvalcol = parseInt(lightDesc.color, 16)
+			const light = new PointLight( intvalcol,1, lightDesc.distance, lightDesc.decay );
+			light.position.set( lightDesc.pos_x, lightDesc.pos_y, lightDesc.pos_z );
+			scene.add( light );
+		}
+	}
 	loadCubemap(path)
 	{
 		var self = this
@@ -55,6 +67,7 @@ export class SceneModel {
 		console.log("INFO: Loading SceneModel from JSON...")
 		this.path = jsonData.path
 		this.assets = jsonData.assets
+		this.lights = jsonData.lights
 		this.loadPLY(this.basePath+this.path)
 		this.loaded = true
 		this.textureName = jsonData.texture
@@ -70,7 +83,8 @@ export class SceneModel {
 			texture: this.textureName,
 			scale: 1,
 			cubemap: this.cubemapName,
-			assets: []
+			assets: [],
+			lights: this.lights
 		}
 		for(var i = 0; i < currentInstances.length;  ++i)
 		{
