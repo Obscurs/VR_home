@@ -1,4 +1,5 @@
 import { PLYLoader } from '../../jsm/loaders/PLYLoader.js';
+import { getDescriptorFromInstance, exportJSON} from './utils.js';
 import { MeshNormalMaterial,TextureLoader, MeshBasicMaterial,MeshPhongMaterial, VertexColors, Mesh, Matrix4, Math, CubeTextureLoader } from '../../build/three.module.js';
 
 export class SceneModel {
@@ -61,6 +62,23 @@ export class SceneModel {
 		this.loadCubemap(this.basePath+this.cubemapName+"/")
 
 	}
+	exportToJSON(currentInstances)
+	{
+
+		var data = {
+			path: this.path,
+			texture: this.textureName,
+			scale: 1,
+			cubemap: this.cubemapName,
+			assets: []
+		}
+		for(var i = 0; i < currentInstances.length;  ++i)
+		{
+			var desc = getDescriptorFromInstance(currentInstances[i])
+			data.assets.push(desc)
+		}
+		exportJSON(JSON.stringify(data))
+	}
 	isLoaded()
 	{
 		return this.loaded && this.instanciated && this.textureLoaded && this.cubemapLoaded
@@ -69,6 +87,7 @@ export class SceneModel {
 	{
 		return this.mesh
 	}
+
 	getAssets()
 	{
 		return this.assets

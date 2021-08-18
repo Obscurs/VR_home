@@ -1,5 +1,5 @@
 import { PLYLoader } from '../../jsm/loaders/PLYLoader.js';
-import { MeshBasicMaterial,MeshPhongMaterial, VertexColors, Mesh, Matrix4, Math, Group, Box3 } from '../../build/three.module.js';
+import { MeshBasicMaterial,MeshPhongMaterial, VertexColors, Mesh, Matrix4, Math, Group, Box3, Vector3} from '../../build/three.module.js';
 
 export class AssetModel {
 	constructor(basePath) {
@@ -88,6 +88,7 @@ export class AssetModel {
 				scene.add(group)
 		})
 	}
+	
 	loadFromJSON(jsonData)
 	{
 		console.log("INFO: Loading Asset from JSON...")

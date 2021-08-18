@@ -1,5 +1,6 @@
 const AppStates =
 {
+	WAITING_INIT_DECISION: "init_decision",
 	THREE_JS_INIT: "init_state",
 	LOADING_ASSETS: "loading_assets_state",
 	LOADING_TEXTURES: "loading_textures_state",
@@ -19,15 +20,17 @@ const VR_ENABLED = true;
 const SONG_NAMES = ["classic", "classic2", "sims2build", "sims2buy"]
 var m_application_state = 
 {
-	state: AppStates.THREE_JS_INIT,
+	state: AppStates.WAITING_INIT_DECISION,
 	three_js_inited: false,
 	audio_loaded: false,
 	is_playing_audio: false,
 	playing_index: 1,
 	songs_loaded: 0,
-	json_assets_loaded: false
+	json_assets_loaded: false,
+
 
 }
+let m_importedData = null;
 let m_controls;
 let m_renderer;
 let m_scene;

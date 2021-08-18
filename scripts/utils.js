@@ -1,4 +1,4 @@
-import { Vector3, Raycaster } from '../../build/three.module.js';
+import { Vector3, Raycaster, Math, Matrix4 } from '../../build/three.module.js';
 export function getWorldIntersectFromNDCxy(camera, ndc_pos, models)
 {
 	camera.updateProjectionMatrix();
@@ -109,6 +109,46 @@ export function loadJSON(path, func)
 	console.log("INFO: Loading JSON: "+path)
 	xmlhttp.send();
 }
+export function getDescriptorFromInstance(instance)
+{
+	var backupPos = new Vector3().copy(instance.position)
+	instance.position.x = 0
+	instance.position.y = 0
+	instance.position.z = 0
+
+	var m2 = new Matrix4();
+	m2.makeRotationX(Math.degToRad(90))
+	instance.applyMatrix4(m2);
+	var descriptor = {
+     "name":instance.name,
+     "pos_x":backupPos.x,
+     "pos_y":backupPos.y,
+     "pos_z":backupPos.z,
+     "scale":instance.scale.x,
+     "rot_x":Math.radToDeg(instance.rotation.x),
+     "rot_y":Math.radToDeg(instance.rotation.z),
+     "rot_z":Math.radToDeg(instance.rotation.y)
+  	}
+  	m2.makeRotationX(Math.degToRad(-90))
+  	instance.applyMatrix4(m2);
+  	instance.position.copy(backupPos)
+  	return descriptor
+}
+export function exportJSON(json)
+{
+	/*var fs = require('fs');
+	fs.writeFile ("input.json", data, function(err) {
+	    if (err) 
+	    	throw err;
+	    console.log('export complete');
+	    }
+	);*/
+	var parts = []
+	parts.push(json)
+	var blob = new Blob(parts);
+	saveAs(blob, 'exported.json')
+}
+
 export function loadObjectJSON(path, obj)
 {
 	var xmlhttp = new XMLHttpRequest();

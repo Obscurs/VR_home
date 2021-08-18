@@ -8,9 +8,15 @@
 	</head>
 	<body>
 		<div class=container4 id="loadingTextContainer">
-		  <p id="loadingText">Loading: 0% 
+		  <p id="loadingText">
 		</div>
-
+		<div class="buttonsContainer">
+			<button id="buttonExport" class="bigButton" style="display: none">Export Layout</button>
+			<button id="buttonImport" onclick="document.getElementById('file-input').click();" class="bigButton">Import Layout</button>
+			<button id="buttonDefault" class="bigButton">Use Default Layout</button>
+			<input id="file-input" type="file" name="name" style="display: none;" />
+		</div>
+		
 		<script src="modules/FileSaver.js"></script>
  		<script src="scripts/globals.js"></script>
 		<script type="module">
@@ -62,6 +68,33 @@
 				document.body.appendChild( VRButton.createButton( m_renderer) );
 				document.getElementById("VRButton").disabled = true;
 				document.getElementById("VRButton").style.visibility = "hidden";
+
+
+				var fileInput = document.getElementById("file-input")
+				fileInput.addEventListener('change' , function() {
+					if(fileInput.files.length > 0)
+					{
+						var reader = new FileReader();
+						reader.addEventListener('load', function() {
+				          m_importedData = JSON.parse(reader.result); // Parse the result into an object 
+				          console.log(m_importedData)
+				          m_application_state.state = AppStates.THREE_JS_INIT
+							document.getElementById("buttonDefault").style.display = "none"
+							document.getElementById("buttonImport").style.display = "none"
+						});
+						reader.readAsText(fileInput.files[0]);
+
+					}		
+				});
+				document.getElementById("buttonDefault").onclick = function() {
+					m_application_state.state = AppStates.THREE_JS_INIT
+					document.getElementById("buttonDefault").style.display = "none"
+					document.getElementById("buttonImport").style.display = "none"
+
+				};
+				document.getElementById("buttonExport").onclick = function() {
+					m_sceneModel.exportToJSON(m_instances)
+				};
 				window.addEventListener( 'resize', onWindowResize );
 				
 
@@ -141,7 +174,11 @@
 				}
 
 				m_sceneModel = new SceneModel(PATH_SCENE_MODEL, m_scene)
-				loadObjectJSON(PATH_SCENE_MODEL+"scene.json",m_sceneModel)
+				if(m_importedData ==null)
+					loadObjectJSON(PATH_SCENE_MODEL+"scene.json",m_sceneModel)
+				else
+					m_sceneModel.loadFromJSON(m_importedData)
+
 				loadJSON(PATH_SCENE_ASSETS+"instanceList.json",loadAssetJSON)
 
 			}
@@ -338,8 +375,13 @@
 							document.getElementById("loadingTextContainer").style.visibility = "hidden";
 							document.getElementById("VRButton").disabled = false;
 							document.getElementById("VRButton").style.visibility = "visible";
+							document.getElementById("buttonExport").style.display = "block"
 							console.log("INFO: System ready to go!")
 						/*}*/
+						break
+					}
+					case AppStates.WAITING_INIT_DECISION:
+					{
 						break
 					}
 				}

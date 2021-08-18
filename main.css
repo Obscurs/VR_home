@@ -100,6 +100,21 @@ a, button, input, select {
 	padding: 10px;
 }
 
+.buttonsContainer {
+    position: fixed;
+    margin: auto;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 300px; /* width of button */
+    height: 30px; /* height of button */
+}
+
+.bigButton {
+	font-size: 30px;
+    margin: 10%;
+}
 .selectBox {
 	border: 1px solid #55aaff;
 	background-color: rgba(75, 160, 255, 0.3);
