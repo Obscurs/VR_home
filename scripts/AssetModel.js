@@ -1,5 +1,5 @@
 import { PLYLoader } from '../../jsm/loaders/PLYLoader.js';
-import { MeshBasicMaterial,MeshPhongMaterial, VertexColors, Mesh, Matrix4, Math, Group, Box3, Vector3} from '../../build/three.module.js';
+import { MeshBasicMaterial,PointLightHelper, PointLight, TextureLoader,MeshPhongMaterial, VertexColors, Mesh, Matrix4, Math, Group, Box3, Vector3} from '../../build/three.module.js';
 
 export class AssetModel {
 	constructor(basePath) {
@@ -8,6 +8,11 @@ export class AssetModel {
 		this.instancedPrototipe = false
 		this.prototypeInstance = new Group()
 		this.category = "none"
+		this.texture = null
+		this.textureName = ""
+		this.textureLoaded = true
+		this.lights = null
+		this.autoshadow = false
 	}
 	loadPrototipe(path)
 	{
@@ -15,6 +20,8 @@ export class AssetModel {
 		var self = this
 		loader.load( path, function ( geometry ) {
 			//const material = new MeshBasicMaterial( { color: 0xffffff} );
+			
+
 			const material = new MeshPhongMaterial( { color: 0xffffff, specular: 0x111111, shininess: 200, vertexColors: VertexColors} );
 			var mesh = new Mesh( geometry, material );
 			mesh.name = self.name
@@ -48,7 +55,13 @@ export class AssetModel {
 		var self = this
 		loader.load( path, function ( geometry ) {
 			//const material = new MeshBasicMaterial( { color: 0xffffff} );
-			const material = new MeshPhongMaterial( { color: 0xffffff, flatShading: true, specular: 0x111111, shininess: 200, vertexColors: VertexColors} );
+			
+
+			var material;
+			if(self.texture != null)
+				material = new MeshPhongMaterial( { color: 0xffffff, flatShading: true, specular: 0x111111, shininess: 200, vertexColors: VertexColors, map: self.texture} );
+			else
+				material = new MeshPhongMaterial( { color: 0xffffff, flatShading: true, specular: 0x111111, shininess: 200, vertexColors: VertexColors} );
 			var group = new Group()
 			group.name = self.name
 			var mesh = new Mesh( geometry, material );
@@ -57,6 +70,23 @@ export class AssetModel {
 			mesh.receiveShadow = true;
 			//mesh.geometry.computeBoundingBox();
 			group.add(mesh)
+			console.log("thelight")
+			console.log(params)
+			if(self.lights != null)
+			{
+				for(var i=0; i< self.lights.length; ++i)
+				{
+					var lightDesc = self.lights[i]
+					var intvalcol = parseInt(lightDesc.color, 16)
+					const light = new PointLight( intvalcol,lightDesc.intensity, lightDesc.distance, lightDesc.decay );
+					light.position.set( lightDesc.pos_x, lightDesc.pos_y, lightDesc.pos_z );
+					const sphereSize = 1;
+					const pointLightHelper = new PointLightHelper( light, sphereSize );
+					light.add(pointLightHelper)
+					group.add( light );
+				}
+			}
+			
 
 			const aabb = new Box3();
 			aabb.setFromObject(group);
@@ -94,6 +124,15 @@ export class AssetModel {
 		console.log("INFO: Loading Asset from JSON...")
 		this.path = jsonData.path
 		this.name = jsonData.name
+		if(jsonData.texture)
+		{
+			this.textureLoaded = false
+			this.textureName = jsonData.texture
+			var self = this
+			this.texture = new TextureLoader().load(this.basePath+this.textureName, function(tex){self.textureLoaded = true});
+		}
+		if(jsonData.lights != null)
+			this.lights = jsonData.lights
 		this.category = jsonData.type
 		this.loadPrototipe(this.basePath+this.path)
 		this.loaded = true
@@ -101,7 +140,7 @@ export class AssetModel {
 	}
 	isLoaded()
 	{
-		return this.loaded && this.instancedPrototipe
+		return this.loaded && this.instancedPrototipe && this.textureLoaded
 	}
 
 	instanciate(params, instances, scene)

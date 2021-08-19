@@ -202,7 +202,8 @@
 				for(var i=0; i <instanceDescriptors.length;++i)
 				{
 					var asset = m_assetList[m_sceneModel.getNameAsset(i)]
-
+					if(asset == null)
+						console.log("ERROR: Asset "+m_sceneModel.getNameAsset(i)+ " not found")
 					asset.instanciate(instanceDescriptors[i], m_instances, null)
 				}
 				m_sceneModel.loadLights(m_scene)
