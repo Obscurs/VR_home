@@ -176,6 +176,7 @@
 					for(var i=0; i < jsonData.assets.length;++i)
 					{
 						m_assetList.push(new AssetModel(PATH_SCENE_ASSETS))
+						m_assetList[i].setName(jsonData.assets[i].name)
 						loadObjectJSON(PATH_SCENE_ASSETS+jsonData.assets[i].name+"/model.json",m_assetList[i])
 					}
 					m_application_state.json_assets_loaded = true;
@@ -246,7 +247,7 @@
 				light.position.x=-5
 				light.position.z=-5
 				var helper = new THREE.HemisphereLightHelper(light,2);
-				light.add(helper)
+				//light.add(helper)
 				//light.castShadow = true
 				m_scene.add(light  );
 				//addShadowedLight( 1, 1, 1, 0xffffff, 1.35 );

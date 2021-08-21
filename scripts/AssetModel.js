@@ -13,6 +13,7 @@ export class AssetModel {
 		this.textureLoaded = true
 		this.lights = null
 		this.autoshadow = false
+		this.instanceable = true
 	}
 	loadPrototipe(path)
 	{
@@ -82,7 +83,7 @@ export class AssetModel {
 					light.position.set( lightDesc.pos_x, lightDesc.pos_y, lightDesc.pos_z );
 					const sphereSize = 1;
 					const pointLightHelper = new PointLightHelper( light, sphereSize );
-					light.add(pointLightHelper)
+					//light.add(pointLightHelper)
 					group.add( light );
 				}
 			}
@@ -118,12 +119,14 @@ export class AssetModel {
 				scene.add(group)
 		})
 	}
-	
+	setName(name)
+	{
+		this.name = name
+	}
 	loadFromJSON(jsonData)
 	{
 		console.log("INFO: Loading Asset from JSON...")
-		this.path = jsonData.path
-		this.name = jsonData.name
+		this.path = this.name+"/model.ply"
 		if(jsonData.texture)
 		{
 			this.textureLoaded = false
