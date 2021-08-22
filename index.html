@@ -177,7 +177,8 @@
 					{
 						m_assetList.push(new AssetModel(PATH_SCENE_ASSETS))
 						m_assetList[i].setName(jsonData.assets[i].name)
-						loadObjectJSON(PATH_SCENE_ASSETS+jsonData.assets[i].name+"/model.json",m_assetList[i])
+						m_assetList[i].setType(jsonData.assets[i].type)
+						loadObjectJSON(PATH_SCENE_ASSETS+jsonData.assets[i].type+"/"+jsonData.assets[i].name+"/model.json",m_assetList[i])
 					}
 					m_application_state.json_assets_loaded = true;
 				}

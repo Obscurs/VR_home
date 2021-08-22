@@ -123,20 +123,24 @@ export class AssetModel {
 	{
 		this.name = name
 	}
+	setType(type)
+	{
+		this.category = type
+	}
 	loadFromJSON(jsonData)
 	{
 		console.log("INFO: Loading Asset from JSON...")
-		this.path = this.name+"/model.ply"
+		this.path = this.category+"/"+this.name+"/model.ply"
 		if(jsonData.texture)
 		{
 			this.textureLoaded = false
 			this.textureName = jsonData.texture
 			var self = this
-			this.texture = new TextureLoader().load(this.basePath+this.textureName, function(tex){self.textureLoaded = true});
+			this.texture = new TextureLoader().load(this.basePath+this.category+"/"+this.textureName, function(tex){self.textureLoaded = true});
 		}
 		if(jsonData.lights != null)
 			this.lights = jsonData.lights
-		this.category = jsonData.type
+		//this.category = jsonData.type
 		this.loadPrototipe(this.basePath+this.path)
 		this.loaded = true
 		
