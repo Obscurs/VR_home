@@ -42,11 +42,12 @@ export class VRControls {
 		this.state = VRStates.IDLE
 		this.instancePointed = null
 		this.instanceDragged = null
-
+		this.defaulted = true
 		this.pendingAssetInstance = null
 		this.leftControllerData = null
 		this.rightControllerData = null
-
+		this.spinDir = 1
+		this.spinTimer = 0
 		this.colPlane = null
 
 		var self = this
@@ -266,8 +267,36 @@ export class VRControls {
 			}
 
 			if(this.isInnerTriggerPressed(this.rightControllerData))
-				instance.rotation.z += dt
-			
+			{
+				this.spinning = true
+				this.spinTimer += dt
+				instance.rotation.z += dt*this.spinDir
+			}
+			else
+			{
+				if(this.spinning)
+				{
+					this.spinning = false
+					if(this.spinTimer > 0.3)
+					{
+						this.spinDir = this.spinDir*(-1)
+					}
+					else
+					{
+						var times = Math.floor(instance.rotation.z/THREE.Math.degToRad(45))
+						if(this.spinDir > 0)
+						{
+							instance.rotation.z = (times+1)*THREE.Math.degToRad(45)
+						}
+						else
+						{
+							instance.rotation.z = (times)*THREE.Math.degToRad(45)
+						}
+					}
+					this.spinTimer = 0
+				}
+				
+			}	
 		}
 	}
 	checkCollision(mesh1, mesh2)
@@ -377,14 +406,23 @@ export class VRControls {
 	}
 	doJoystickEvents()
 	{
-		if(this.rightControllerData.axes[3] < -0.5 && this.state == VRStates.IDLE)
+		if(this.defaulted)
 		{
-			this.startMovingUser(this.rightControllerData.controller)
-			
-		} else if(this.rightControllerData.axes[3] > -0.2 && this.state == VRStates.MOVING)
-		{
-			this.endMovingUser(this.rightControllerData.controller)
+			if(this.rightControllerData.axes[3] < -0.5 && this.state == VRStates.IDLE)
+			{
+				this.startMovingUser(this.rightControllerData.controller)
+				
+			} else if(this.rightControllerData.axes[3] > -0.2 && this.state == VRStates.MOVING)
+			{
+				this.endMovingUser(this.rightControllerData.controller)
+			}
+		} else{
+			if(this.rightControllerData.axes[3] > -0.1 && this.state == VRStates.IDLE)
+			{
+				this.defaulted = true
+			}
 		}
+		
 
 		
 	}
@@ -441,7 +479,6 @@ export class VRControls {
 				
 				this.selector.hideUI()
 				var selectedItem = this.selector.getSelectedItem()
-				//TODO Instanciate selected object
 				var asset = m_assetList[selectedItem.children[0].name]
 				var pos = new THREE.Vector3()
 				var dir = new THREE.Vector3()
@@ -457,7 +494,7 @@ export class VRControls {
 			        rot_y: 0,
 			        rot_z: 0
 				}
-
+				this.defaulted = false
 				this.state = VRStates.IDLE
 			}
 		}
@@ -545,7 +582,7 @@ export class VRControls {
 				material.depthTest = false;
 				material.transparent = true;
 				var theline = new THREE.Line( geometry, material );
-				theline.renderOrder = 1
+				//theline.renderOrder = 1
 				return theline
 
 			case 'gaze':

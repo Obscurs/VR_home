@@ -21,9 +21,12 @@ export class AssetModel {
 		var self = this
 		loader.load( path, function ( geometry ) {
 			//const material = new MeshBasicMaterial( { color: 0xffffff} );
-			
-
-			const material = new MeshPhongMaterial( { color: 0xffffff, specular: 0x111111, shininess: 200, vertexColors: VertexColors} );
+			var material;
+			if(self.texture != null)
+				material = new MeshPhongMaterial( { color: 0xffffff, flatShading: true, specular: 0x111111, shininess: 200, vertexColors: VertexColors, map: self.texture} );
+			else
+				material = new MeshPhongMaterial( { color: 0xffffff, flatShading: true, specular: 0x111111, shininess: 200, vertexColors: VertexColors} );
+			//const material = new MeshPhongMaterial( { color: 0xffffff, specular: 0x111111, shininess: 200, vertexColors: VertexColors} );
 			var mesh = new Mesh( geometry, material );
 			mesh.name = self.name
 
