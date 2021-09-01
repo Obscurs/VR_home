@@ -14,7 +14,7 @@ const SCENE_MODEL_NAME = "SceneModel";
 const PATH_SCENE_MODEL = "models/scenes/";
 const PATH_SCENE_ASSETS = "models/assets/";
 const PATH_ASSETS = "assets/";
-const VR_ENABLED = true;
+var VR_ENABLED = true;
 
 
 const SONG_NAMES = ["classic", "classic2", "sims2build", "sims2buy"]

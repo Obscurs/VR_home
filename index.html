@@ -35,7 +35,8 @@
 
 			var m_manager = new THREE.LoadingManager();
 			
-
+			if(window.location.search.substr(1)=="novr")
+				VR_ENABLED = false
 			
 			const m_clock = new THREE.Clock();
 			init();
