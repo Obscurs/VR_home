@@ -1,4 +1,4 @@
-import { Vector3, Raycaster, Math, Matrix4 } from '../../build/three.module.js';
+import { Vector3, Raycaster } from '../../build/three.module.js';
 export function getWorldIntersectFromNDCxy(camera, ndc_pos, models)
 {
 	camera.updateProjectionMatrix();
@@ -94,112 +94,30 @@ export function positionAtT(inVec,t,p,v,g) {
     inVec.addScaledVector(g,0.5*t**2);
     return inVec;
 }
-
-export function loadJSON(path, func)
+export function intersectionObjectLine(models, pos, dir)
 {
-	var xmlhttp = new XMLHttpRequest();
-	xmlhttp.onreadystatechange = function() {
-	    if (this.readyState == 4 && this.status == 200) {
-	        var myObj = JSON.parse(this.responseText);
-	        func(myObj)
-	        console.log("INFO: JSON loaded: "+path)
-	    }
-	};
-	xmlhttp.open("GET", path, true);
-	console.log("INFO: Loading JSON: "+path)
-	xmlhttp.send();
-}
-export function getDescriptorFromInstance(instance)
-{
-	var backupPos = new Vector3().copy(instance.position)
-	instance.position.x = 0
-	instance.position.y = 0
-	instance.position.z = 0
 
-	var m2 = new Matrix4();
-	m2.makeRotationX(Math.degToRad(90))
-	instance.applyMatrix4(m2);
-	var descriptor = {
-     "name":instance.name,
-     "pos_x":backupPos.x,
-     "pos_y":backupPos.y,
-     "pos_z":backupPos.z,
-     "scale":instance.scale.x,
-     "rot_x":Math.radToDeg(instance.rotation.x),
-     "rot_y":Math.radToDeg(instance.rotation.z),
-     "rot_z":Math.radToDeg(instance.rotation.y)
-  	}
-  	m2.makeRotationX(Math.degToRad(-90))
-  	instance.applyMatrix4(m2);
-  	instance.position.copy(backupPos)
-  	return descriptor
-}
-export function exportJSON(json)
-{
-	/*var fs = require('fs');
-	fs.writeFile ("input.json", data, function(err) {
-	    if (err) 
-	    	throw err;
-	    console.log('export complete');
-	    }
-	);*/
-	var parts = []
-	parts.push(json)
-	var blob = new Blob(parts);
-	saveAs(blob, 'exported.json')
-}
+    var raycaster =  new Raycaster(pos, dir);    
+	var intersects = raycaster.intersectObjects( models,true );
 
-export function loadObjectJSON(path, obj)
-{
-	var xmlhttp = new XMLHttpRequest();
-	xmlhttp.onreadystatechange = function() {
-	    if (this.readyState == 4 && this.status == 200) {
-	        var myObj = JSON.parse(this.responseText);
-	        obj.loadFromJSON(myObj)
-	        console.log("INFO: JSON loaded: "+path)
-	    }
-	};
-	xmlhttp.open("GET", path, true);
-	console.log("INFO: Loading JSON: "+path)
-	xmlhttp.send();
-}
-
-export function getFirstIntersection(modelList, modelExceptions, pos, dir)
-{
-	/*var pos = new THREE.Vector3()
-	var dir = new THREE.Vector3()
-	getControllerRight().getWorldPosition(pos);
-    getControllerRight().getWorldDirection(dir);
-    dir.multiplyScalar(-1)*/
-
-    var raycasterStart =  new Raycaster(pos, dir);  
-	var intersectsStart = raycasterStart.intersectObjects( modelList ); 
-	for(var i=0; i < intersectsStart.length; i++)
-	{
-		var intersectObj = intersectsStart[i].object
-		//console.log(intersectObj)
-		var isException = false
-		for(var j=0; j < modelExceptions.length; j++)
-		{
-			if(intersectObj == modelExceptions[j])
-			{
-				isException = true
-				break
-			}
-		}
-		
-		if(!isException){
-			var n = intersectsStart[ i ].face.normal.clone();
-			n.transformDirection( intersectObj.matrixWorld );
-			//n.multiplyScalar( 10 );
-			var intersectInfo = {
-				object: intersectsStart[i].object,
-		    	point: intersectsStart[i].point,
-		    	normal: n,
-		    }
-		    return intersectInfo
-		}
-	}
+	//console.log(intersects)
+	//setDefaultColorsCameras();
 	
-	return null
+    if ( intersects.length > 0 ) 
+    {
+    	
+    	var curr_index = intersects[ 0 ]
+    	var curr_depth = intersects[ 0 ].distance
+    	for(var i=0; i <intersects.length; i++)
+    	{
+    		if(intersects[ 0 ].distance < curr_depth)
+    		{
+    			curr_depth = intersects[ 0 ].distance;
+    			curr_index = intersects[ i ];
+    		}
+    	}
+    	return curr_index
+    }
+    else
+    	return null
 }

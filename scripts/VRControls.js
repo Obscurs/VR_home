@@ -1,19 +1,30 @@
 
 import * as THREE from '../build/three.module.js';
-import { positionAtT, getFirstIntersection} from './utils.js';
+import { positionAtT, intersectionObjectLine} from './utils.js';
+import { VRGUI} from './VRGUI.js';
 import { XRControllerModelFactory } from '../jsm/webxr/XRControllerModelFactory.js';
 import { PLYLoader } from '../jsm/loaders/PLYLoader.js';
 const VRStates =
 {
 	IDLE: "idle_state",
-	DRAGGING: "drag_state",
-	MOVING: "move_state",
-	SHOWING_UI: "ui_state",
-	DELETING_ITEM: "deleting_state",
+	CLICKING: "clicking_state",
+	SELECTING_AREA: "drag_state",
+	DRAGGING_UI: "ui_state",
 }
-const HEIGHT_OFFSET = 1.6
+const MODELS_TO_LOAD = 2
+const HEIGHT_OFFSET = 1
+const TeleportTypes = 
+{
+	LINE: "LINE",
+	ARC:  "ARC",
+}
+var IconTypes =
+{
+	SELECT_TOOL: null,
+	TELEPORT_ARROW: null
+}
 export class VRControls {
-	constructor(scene, renderer, camera, selector) {
+	constructor(scene, renderer, camera, camera_group) {
 		this.loaded = false
 
 		this.g = null
@@ -27,7 +38,7 @@ export class VRControls {
 		this.lineGeometryVertices = null
 		this.lineSegments = null
 		this.guidesprite = null
-		this.camera_group = new THREE.Group()
+		this.camera_group = camera_group
 
 		this.controller1 = null
 		this.controller2 = null
@@ -36,30 +47,48 @@ export class VRControls {
 		this.scene = scene
 		this.renderer = renderer
 		this.camera = camera
-		this.selector = selector
-		this.camera_group.position.set(0,HEIGHT_OFFSET,0)
-		this.camera_group.add(this.camera)
+
 		this.state = VRStates.IDLE
-		this.instancePointed = null
-		this.instanceDragged = null
-		this.defaulted = true
-		this.pendingAssetInstance = null
 		this.leftControllerData = null
 		this.rightControllerData = null
 		this.spinDir = 1
 		this.spinTimer = 0
 		this.colPlane = null
+		this.currentPointedGroundY = -1
+		this.currentPointedPosition = new THREE.Vector3()
+		this.currentPointedObject = null
+		this.currentClickedObject = null
+		this.timerGroundUpdater =0
+		this.startedMovement = false
+		this.teleportType = TeleportTypes.LINE
+		this.models_loaded = 0
+		this.GUI = new VRGUI(this.camera_group)
 
+		this.drag_timer = 0
 		var self = this
 
 		const loader = new PLYLoader();
 		loader.load( '../assets/arrow.ply', function ( geometry ) {
 			const material = new THREE.MeshBasicMaterial( { color: 0xffffff} );
-			self.guidesprite = new THREE.Mesh( geometry, material );
-			self.loaded = true;
-			console.log(self.guidesprite)
-		})
+			material.depthTest = false;
+			IconTypes.TELEPORT_ARROW = new THREE.Mesh( geometry, material );
+			IconTypes.TELEPORT_ARROW.renderOrder = 1
 
+
+			self.models_loaded +=1
+			self.loaded = true;
+			//console.log(self.guidesprite)
+		})
+		loader.load( '../assets/selectTool.ply', function ( geometry ) {
+			const material = new THREE.MeshBasicMaterial( { color: 0xffffff} );
+			material.depthTest = false;
+			IconTypes.SELECT_TOOL = new THREE.Mesh( geometry, material );
+			IconTypes.SELECT_TOOL.renderOrder = 1
+			//self.guidesprite 
+			self.models_loaded +=1
+			self.loaded = (self.models_loaded == MODELS_TO_LOAD);
+			//console.log(self.guidesprite)
+		})
 
 
 
@@ -93,7 +122,7 @@ export class VRControls {
 			
 		}
 		function onSelectStartRight(self, controller) {
-			if(self.state == VRStates.IDLE)
+			/*if(self.state == VRStates.IDLE)
 			{
 				if(self.instancePointed != null && self.instancePointed.object.name != SCENE_MODEL_NAME)
 				{
@@ -101,26 +130,60 @@ export class VRControls {
 					self.instanceDragged = self.instancePointed 
 					self.instancePointed = null
 				}
+			}*/
+			self.state = VRStates.CLICKING
+			self.currentClickedObject = self.currentPointedObject
+			if(self.currentClickedObject.type == PointedObjectNames.VR_GUI_TYPE)
+			{
+				self.currentClickedObject.onStartClick()
 			}
+
 		    
 		}
 
 		function onSelectEndRight(self, controller) {
 
-			if(self.state == VRStates.DRAGGING)
+			/*if(self.state == VRStates.DRAGGING)
 			{
 				self.instanceDragged = null
 				self.state = VRStates.IDLE
+			}*/
+			self.drag_timer = 0
+			if(self.state == VRStates.CLICKING)
+			{
+				if(self.currentClickedObject.type == PointedObjectNames.VR_GUI_TYPE)
+				{
+					if(self.currentClickedObject == self.currentPointedObject)
+					{
+						self.currentClickedObject.onEndClick()
+					}
+					else
+					{
+						self.currentClickedObject.onCancelClick()
+					}
+
+				}
+				if(self.currentPointedObject.name==PointedObjectNames.GROUND) //check collision object to decide what to do
+				{
+					self.endMovingUser(self.rightControllerData.controller)
+				}
+				
+				//else if()
 			}
+			else if(self.state == VRStates.DRAGGING)
+			{
+				if(self.currentClickedObject.type == PointedObjectNames.VR_GUI_TYPE)
+				{
+					self.currentClickedObject.onEndDrag()
+				}
+			}
+			self.state = VRStates.IDLE
+			self.currentClickedObject = null
 
 		    
 		}
 		
-		var colGeometry = new THREE.PlaneGeometry( 12, 12 );
-		var colMaterial = new THREE.MeshBasicMaterial( { color: 0x005E99 } );
-		this.colPlane = new THREE.Mesh( colGeometry, colMaterial );
-		this.colPlane.geometry.computeBoundingBox();
-		this.colPlane.lookAt(new THREE.Vector3(1, 1, 1));
+
 
 
 		this.controller1 = this.renderer.xr.getController( 0 );
@@ -185,6 +248,7 @@ export class VRControls {
 		this.guidelight = new THREE.PointLight(0xffeeaa, 0, 2);
 
 		this.scene.add(this.camera_group);
+		
 		//this.scene.add(this.colPlane);
 	}
 	isLoaded()
@@ -225,6 +289,8 @@ export class VRControls {
 	                axes: source.gamepad.axes.slice(0)
 	            };*/
 	        }
+	        if(this.rightControllerData && !this.startedMovement)
+	        	this.startMovingUser(this.rightControllerData.controller)
 	    }
 	}
 	isInnerTriggerPressed(controllerData)
@@ -245,168 +311,101 @@ export class VRControls {
 	}
 
 
-	updateInstanceDragged(dt)
+	updateGuideSprite(requestedSprite)
 	{
-		if(this.instanceDragged != null &&  this.instancePointed != null)
+		if(requestedSprite == null)
 		{
-			this.instanceDragged.object.position.copy(this.instancePointed.point)
-			var instance = this.instanceDragged.object
-
-			var auxVec = new THREE.Vector3()
-			auxVec.x = this.instancePointed.normal.x
-			auxVec.y = this.instancePointed.normal.y
-			auxVec.z = this.instancePointed.normal.z
-			auxVec.multiplyScalar(0.02)
-			var maxCount = 0
-			while(this.checkCollisionMeshGroup(this.colPlane,instance) && maxCount < 100)
-			{
-				
-				instance.position.add(auxVec)
-				instance.translateOnAxis(auxVec, 0.02);
-				maxCount +=1
-			}
-
-			if(this.isInnerTriggerPressed(this.rightControllerData))
-			{
-				this.spinning = true
-				this.spinTimer += dt
-				instance.rotation.z += dt*this.spinDir
-			}
-			else
-			{
-				if(this.spinning)
-				{
-					this.spinning = false
-					if(this.spinTimer > 0.3)
-					{
-						this.spinDir = this.spinDir*(-1)
-					}
-					else
-					{
-						var times = Math.floor(instance.rotation.z/THREE.Math.degToRad(45))
-						if(this.spinDir > 0)
-						{
-							instance.rotation.z = (times+1)*THREE.Math.degToRad(45)
-						}
-						else
-						{
-							instance.rotation.z = (times)*THREE.Math.degToRad(45)
-						}
-					}
-					this.spinTimer = 0
-				}
-				
-			}	
+			if(this.guidesprite != null)
+				m_scene.remove(this.guidesprite);
+			this.guidesprite = null
+			return
 		}
-	}
-	checkCollision(mesh1, mesh2)
-	{
-		mesh1.updateMatrixWorld();
-		mesh2.updateMatrixWorld();
-		var bounding1 = mesh1.geometry.boundingBox.clone();
-		bounding1.applyMatrix4(mesh1.matrixWorld);
-		var bounding2 = mesh2.geometry.boundingBox.clone();
-		bounding2.applyMatrix4(mesh2.matrixWorld);
-
-		return bounding1.intersectsBox(bounding2)
-	}
-	checkCollisionMeshGroup(mesh1, group)
-	{
-		mesh1.updateMatrixWorld();
-		group.updateMatrixWorld();
-		var bounding1 = mesh1.geometry.boundingBox.clone();
-		bounding1.applyMatrix4(mesh1.matrixWorld);
-		console.log(group)
-		var bounding2 = group.boundingBox.clone();
-		bounding2.applyMatrix4(group.matrixWorld);
-		bounding2.name = "bboox"
-		/*if(this.scene.children[this.scene.children.length-1].name == "bboox")
-			this.scene.remove(scene.children[this.scene.children.length-1])
-		this.scene.add(bounding2)*/
-		console.log(group.boundingBox.max.x)
-		return bounding1.intersectsBox(bounding2)
-	}
-
-	updatePointedObject(instances, sceneModel)
-	{
-		if(this.rightControllerData != null)
+		if(this.guidesprite != requestedSprite)
 		{
-			var pos = new THREE.Vector3()
-			var dir = new THREE.Vector3()
-			this.rightControllerData.controller.getWorldPosition(pos);
-		    this.rightControllerData.controller.getWorldDirection(dir);
-		    if(pos !=null && dir !=null){
-		    	dir.multiplyScalar(-1)
-			    var exceptions = []
-			    var models = [sceneModel.getMesh()]
-			    for(var i=0; i < instances.length; i++)
-			    {
-			    	//TODO do something with these children[0]
-			    	models.push(instances[i].children[0])
-			    }
-			    //TODO do something with these children[0]
-			    if(this.instanceDragged !=null)
-			    	exceptions.push(this.instanceDragged.object.children[0])
-			    this.instancePointed = getFirstIntersection(models,exceptions, pos, dir)
-			    if(this.instancePointed != null && this.instancePointed.object.name != "" && this.instancePointed.object.name == this.instancePointed.object.parent.name)
-			    	this.instancePointed.object = this.instancePointed.object.parent
-			    if(this.instancePointed != null)
-			    {
-			    	this.colPlane.position.copy(this.instancePointed.point)
-				    var auxVec = new THREE.Vector3()
-				    auxVec.copy(this.instancePointed.normal)
-				    auxVec.add(this.instancePointed.point)
-				    this.colPlane.lookAt(auxVec)
-			    }
-			    
-		    }
+			if(this.guidesprite != null)
+			{
+				m_scene.remove(this.guidesprite);
+				requestedSprite.position.copy(this.guidesprite)
+			}
+			this.guidesprite = requestedSprite
+			m_scene.add(this.guidesprite)
 		}
+		
 	}
 	startMovingUser(controller)
 	{
-		this.state = VRStates.MOVING
+		console.log("startMoviing")
+		//this.state = VRStates.MOVING
 		this.guidingController = controller;
 	    this.guidelight.intensity = 1;
 	    controller.add(this.guideline);
-	    this.scene.add(this.guidesprite);
+	    //this.scene.add(this.guidesprite);
+	    this.startedMovement = true
+	}
+	endMoveArc(controller)
+	{
+		const feetPos = this.renderer.xr.getCamera(m_camera).getWorldPosition(this.tempVec);
+        feetPos.y = -1//this.camera_group.position.y;
+
+        // cursor position
+        const p = this.guidingController.getWorldPosition(this.tempVecP);
+        const v = this.guidingController.getWorldDirection(this.tempVecV);
+        v.multiplyScalar(6);
+        var offsety = -this.getFloorFromPos(m_camera_group.position);
+        const t = (-v.y+offsety  + Math.sqrt((v.y+offsety)**2 - 2*(p.y+offsety)*this.g.y))/this.g.y;
+        var cursorPos = positionAtT(this.tempVec1,t,p,v,this.g);
+        //cursorPos.y = this.camera_group.position.y+1
+        cursorPos.y = this.getFloorFromPos(cursorPos) + HEIGHT_OFFSET
+
+        //console.log("FLOOR Y = "+cursorPos.y)
+        // Offset
+        //const offset = cursorPos.addScaledVector(feetPos ,-1);
+
+        // Do the locomotion
+        //locomotion(offset);
+        this.moveVRCam(cursorPos)
+        // clean up
+       // this.guidingController = null;
+        //this.guidelight.intensity = 0;
+        /*controller.remove(this.guideline);
+        m_scene.remove(this.guidesprite);*/
+
+        //this.state = VRStates.IDLE
+	}
+	endMoveLine(controller)
+	{
+		var cursorPos = new THREE.Vector3()
+		cursorPos.copy(this.currentPointedPosition)
+		cursorPos.y = this.getFloorFromPos(cursorPos) + HEIGHT_OFFSET
+		this.moveVRCam(cursorPos)
+        // clean up
+        //this.guidingController = null;
+        //this.guidelight.intensity = 0;
+        //controller.remove(this.guideline);
+        //m_scene.remove(this.guidesprite);
+
+        //this.state = VRStates.IDLE
 	}
 	endMovingUser(controller)
 	{
+		console.log("endMoviing")
 		if (this.guidingController === controller) {
 
-	        // first work out vector from feet to cursor
-
+			if(this.teleportType == TeleportTypes.ARC)
+			{
+				this.endMoveArc(controller)
+			}
+			else if(this.teleportType == TeleportTypes.LINE)
+			{
+				this.endMoveLine(controller)
+			}
 	        // feet position
-	        const feetPos = this.renderer.xr.getCamera(this.camera).getWorldPosition(this.tempVec);
-	        feetPos.y = 0;
-
-	        // cursor position
-	        const p = this.guidingController.getWorldPosition(this.tempVecP);
-	        const v = this.guidingController.getWorldDirection(this.tempVecV);
-	        v.multiplyScalar(6);
-	        var offsety =  0;
-	        const t = (-v.y+offsety  + Math.sqrt((v.y+offsety)**2 - 2*(p.y+offsety)*this.g.y))/this.g.y;
-	        var cursorPos = positionAtT(this.tempVec1,t,p,v,this.g);
-	        //cursorPos.y = this.camera_group.position.y+1
-	        cursorPos.y = this.getFloorFromPos(cursorPos)
-	        // Offset
-	        const offset = cursorPos.addScaledVector(feetPos ,-1);
-
-	        // Do the locomotion
-	        //locomotion(offset);
-	        this.moveVRCam(offset)
-	        // clean up
-	        this.guidingController = null;
-	        this.guidelight.intensity = 0;
-	        controller.remove(this.guideline);
-	        this.scene.remove(this.guidesprite);
-
-	        this.state = VRStates.IDLE
+	        
 	    }
 	}
 	doJoystickEvents()
 	{
-		if(this.defaulted)
+		/*if(this.defaulted)
 		{
 			if(this.rightControllerData.axes[3] < -0.5 && this.state == VRStates.IDLE)
 			{
@@ -421,35 +420,20 @@ export class VRControls {
 			{
 				this.defaulted = true
 			}
-		}
+		}*/
 		
 
 		
 	}
-	deleteInstance(instance, instances)
+	
+	doInputEvents()
 	{
-		for(var i=0; i< instances.length; ++i)
-		{
-			if(instances[i] == instance.object)
-				instances.splice( i, 1 );
-		}
-		
-		
-		this.scene.remove(instance.object);
-		instance.object = null
-		instance = null
-	}
-	doInputEvents(instances)
-	{
-		if(this.rightControllerData == null/* || this.leftControllerData == null*/)
-			return
-		this.doJoystickEvents()
+		/*this.doJoystickEvents()
 		if(this.isAButtonPressed(this.rightControllerData))
 		{
 			if(this.state == VRStates.IDLE)
 			{
-				if(this.instancePointed != null && this.instancePointed.object.destroyable)
-					this.deleteInstance(this.instancePointed,instances)
+				
 				this.state = VRStates.DELETING_ITEM
 			}
 		}
@@ -467,7 +451,7 @@ export class VRControls {
 				var dir = new THREE.Vector3()
 				this.rightControllerData.controller.getWorldPosition(pos);
 			    this.rightControllerData.controller.getWorldDirection(dir);
-				this.selector.showUI(pos, dir)
+				//this.selector.showUI(pos, dir)
 				this.state = VRStates.SHOWING_UI
 			}
 		}
@@ -475,45 +459,165 @@ export class VRControls {
 		{
 			if(this.state == VRStates.SHOWING_UI)
 			{
-				//hide UI
-				
-				this.selector.hideUI()
-				var selectedItem = this.selector.getSelectedItem()
-				var asset = m_assetList[selectedItem.children[0].name]
-				var pos = new THREE.Vector3()
-				var dir = new THREE.Vector3()
-				this.rightControllerData.controller.getWorldDirection(dir);
-				this.rightControllerData.controller.getWorldPosition(pos)
-				this.pendingAssetInstance = {
-					name: asset.name,
-			        pos_x: pos.x-dir.x,
-			        pos_y: pos.y-dir.y,
-			        pos_z: pos.z-dir.z,
-			        scale: 1,
-			        rot_x: 0,
-			        rot_y: 0,
-			        rot_z: 0
-				}
-				this.defaulted = false
 				this.state = VRStates.IDLE
 			}
-		}
+		}*/
 		
 	}
-	update(dt, instances, sceneModel)
+	updatePointedPosition(dt)
 	{
 
-		this.updateControllers()
-		this.doInputEvents(instances)
-		this.updatePointedObject(instances,sceneModel)
-		if(this.state == VRStates.DRAGGING)
-			this.updateInstanceDragged(dt)
-		if(this.state == VRStates.SHOWING_UI && this.rightControllerData != null)
+		if(this.teleportType == TeleportTypes.ARC)
 		{
-			var pos = new THREE.Vector3()
-			this.rightControllerData.controller.getWorldPosition(pos)
-			this.selector.updateUI(dt, pos)
+	        // cursor position
+	        if(this.guidingController && this.timerGroundUpdater > 0.3)
+	        {
+	        	const p = this.guidingController.getWorldPosition(this.tempVecP);
+		        const v = this.guidingController.getWorldDirection(this.tempVecV);
+		        v.multiplyScalar(6);
+		        var offsety =  -this.getFloorFromPos(m_camera_group.position);
+		        const t = (-v.y+offsety  + Math.sqrt((v.y+offsety)**2 - 2*(p.y+offsety)*this.g.y))/this.g.y;
+		        var cursorPos = positionAtT(this.tempVec1,t,p,v,this.g);
+
+				this.currentPointedGroundY = this.getFloorFromPos(cursorPos)
+				console.log("FLOOR Y = "+this.currentPointedGroundY)
+				this.timerGroundUpdater = 0
+	        }
+	        else if(this.guidingController)
+	        {
+	        	this.timerGroundUpdater +=dt
+	        }
+	    }
+	    else if(this.teleportType == TeleportTypes.LINE)
+	    {
+	    	if(this.guidingController && this.timerGroundUpdater > 0.3)
+	        {
+
+			    var pos = new THREE.Vector3()
+				var dir = new THREE.Vector3()
+				this.guidingController.getWorldPosition(pos);
+			    this.guidingController.getWorldDirection(dir);
+			    dir.multiplyScalar(-1)
+			    var intersection = intersectionObjectLine(m_scene_models_col, pos, dir)
+			    var intersectionUI = intersectionObjectLine(this.GUI.getGroup().children,pos,dir)
+			    if(intersection != null && intersectionUI == null)
+			    {
+			    	this.currentPointedPosition.copy(intersection.point)
+			    	this.currentPointedGroundY = this.getFloorFromPos(this.currentPointedPosition)
+			    	this.currentPointedObject = intersection.object
+			    	if(this.currentPointedObject.name == PointedObjectNames.GROUND)
+			    		this.updateGuideSprite(IconTypes.TELEPORT_ARROW)
+			    	else if(this.currentPointedObject.name == PointedObjectNames.WALL)
+			    	{
+			    		this.updateGuideSprite(IconTypes.SELECT_TOOL)
+			    		this.guidesprite.lookAt(pos)
+			    	}
+			    	else
+			    		this.updateGuideSprite(null)
+			    }
+			    else if(intersectionUI != null)
+			    {
+			    	this.currentPointedObject = intersectionUI.object
+			    	this.updateGuideSprite(null)
+			    }
+			    
+			}
+			else if(this.guidingController)
+	        {
+	        	this.timerGroundUpdater +=dt
+	        }
+	    }
+        
+	}
+	updateGuidingControllerArc()
+	{
+		const p = this.guidingController.getWorldPosition(this.tempVecP);
+        //p.y = p.y+1
+        // Set Vector V to the direction of the controller, at 1m/s
+        const v = this.guidingController.getWorldDirection(this.tempVecV);
+        //v.y = v.y+1
+        // Scale the initial velocity to 6m/s
+        v.multiplyScalar(6);
+
+        // Time for tele ball to hit ground
+        var offsety =  -this.currentPointedGroundY; // - ground y
+        const t = (-v.y+offsety  + Math.sqrt((v.y+offsety)**2 - 2*(p.y+offsety)*this.g.y))/this.g.y;
+
+        const vertex = this.tempVec.set(0,0,0);
+        for (let i=1; i<=this.lineSegments; i++) {
+
+            // set vertex to current position of the virtual ball at time t
+            positionAtT(vertex,i*t/this.lineSegments,p,v,this.g);
+            this.guidingController.worldToLocal(vertex);
+            vertex.toArray(this.lineGeometryVertices,i*3);
+        }
+        this.guideline.geometry.attributes.position.needsUpdate = true;
+        
+        // Place the light and sprite near the end of the poing
+        positionAtT(this.guidelight.position,t*0.98,p,v,this.g);
+        if(this.guidesprite != null)
+        	positionAtT(this.guidesprite.position,t*0.98,p,v,this.g);
+	}
+	updateGuidingControllerLine()
+	{
+		const p = this.guidingController.getWorldPosition(this.tempVecP);
+        //p.y = p.y+1
+        // Set Vector V to the direction of the controller, at 1m/s
+        const v = this.guidingController.getWorldDirection(this.tempVecV);
+
+        var distance = p.distanceTo( this.currentPointedPosition );
+        var offset = -distance/10
+        const vertex = this.tempVec.set(0,0,0);
+        for (let i=1; i<=this.lineSegments; i++) {
+
+            // set vertex to current position of the virtual ball at time t
+
+            vertex.copy(p);
+    		vertex.addScaledVector(v,(i-1)*offset);
+    		this.guidingController.worldToLocal(vertex);
+            vertex.toArray(this.lineGeometryVertices,i*3);
+        }
+        this.guidelight.position.copy(this.currentPointedPosition)
+        if(this.guidesprite != null)
+        	this.guidesprite.position.copy(this.currentPointedPosition)
+	}
+	update(dt)
+	{
+		this.GUI.update(dt, this.currentPointedObject)
+		/*if(this.currentPointedObject != null && this.currentPointedObject.type == PointedObjectNames.VR_GUI_TYPE)
+		{
+			this.currentPointedObject.onHover()
+		}*/
+		if(this.state == VRStates.CLICKING)
+		{
+			this.drag_timer += dt
+			if(this.drag_timer > 0.5)
+			{
+				this.state = VRStates.DRAGGING
+				if(this.currentClickedObject != null && this.currentClickedObject == this.currentPointedObject && this.currentClickedObject.type == PointedObjectNames.VR_GUI_TYPE)
+				{
+					this.currentClickedObject.onStartDrag()
+				}
+			}
+				
 		}
+
+		this.updateControllers()
+		this.updatePointedPosition(dt)
+		//this.doInputEvents()
+
+
+		if(this.state == VRStates.DRAGGING && this.currentClickedObject.type == PointedObjectNames.VR_GUI_TYPE)
+		{
+			
+			var pos = new THREE.Vector3()
+			var dir = new THREE.Vector3()
+			this.guidingController.getWorldPosition(pos);
+			this.guidingController.getWorldDirection(dir);
+			//this.GUI.updateDrag(pos, dir)
+			this.currentClickedObject.onUpdateDrag(pos,dir)
+		}
+			
 		/*const session = this.renderer.xr.getSession();
 		let i = 0;
 		if (session) {
@@ -536,32 +640,14 @@ export class VRControls {
 	    }*/
 
 		if (this.guidingController) {
-	        // Controller start position
-	        const p = this.guidingController.getWorldPosition(this.tempVecP);
-	        //p.y = p.y+1
-	        // Set Vector V to the direction of the controller, at 1m/s
-	        const v = this.guidingController.getWorldDirection(this.tempVecV);
-	        //v.y = v.y+1
-	        // Scale the initial velocity to 6m/s
-	        v.multiplyScalar(6);
-
-	        // Time for tele ball to hit ground
-	        var offsety =  0;
-	        const t = (-v.y+offsety  + Math.sqrt((v.y+offsety)**2 - 2*(p.y+offsety)*this.g.y))/this.g.y;
-
-	        const vertex = this.tempVec.set(0,0,0);
-	        for (let i=1; i<=this.lineSegments; i++) {
-
-	            // set vertex to current position of the virtual ball at time t
-	            positionAtT(vertex,i*t/this.lineSegments,p,v,this.g);
-	            this.guidingController.worldToLocal(vertex);
-	            vertex.toArray(this.lineGeometryVertices,i*3);
-	        }
-	        this.guideline.geometry.attributes.position.needsUpdate = true;
-	        
-	        // Place the light and sprite near the end of the poing
-	        positionAtT(this.guidelight.position,t*0.98,p,v,this.g);
-	        positionAtT(this.guidesprite.position,t*0.98,p,v,this.g);
+			if(this.teleportType == TeleportTypes.ARC)
+			{
+				this.updateGuidingControllerArc()
+			}
+			else if(this.teleportType == TeleportTypes.LINE)
+			{
+				this.updateGuidingControllerLine()
+			}
 	    }
 	}
 
@@ -594,13 +680,20 @@ export class VRControls {
 		}
 
 	}
+
 	getFloorFromPos(position)
 	{
-		/*var auxPos = new THREE.Vector3(position.x,100 ,position.z)
+		var auxPos = new THREE.Vector3(position.x,100 ,position.z)
 		var auxUp = new THREE.Vector3(0,-1,0)
 		var raycasterFloor =  new THREE.Raycaster(auxPos, auxUp);    
-		var intersectsFloor = raycasterFloor.intersectObjects( m_scene_models );  
-		console.log(intersectsFloor)
+		var models = []
+		for(var i=0; i<m_scene_models_col.length; ++i )
+		{
+			if(m_scene_models_col[i].name=="THEMODEL_COL_GROUND")
+				models.push(m_scene_models_col[i])
+		}
+		var intersectsFloor = raycasterFloor.intersectObjects( models );  
+		//console.log(intersectsFloor)
 		if(intersectsFloor.length > 0)
 		{
 			var minY = 1000;
@@ -614,20 +707,13 @@ export class VRControls {
 		else
 		{
 			return m_models_values[m_gui.gui_options.current_model].vr_y
-		}*/
-		return 0
+		}
 	}
 
 	moveVRCam(offset)
 	{
-		this.camera_group.position.add(offset)
+		//this.camera_group.position.add(offset)
+		this.camera_group.position.copy(offset)
 	}
-	getPendingAssetInstance()
-	{
-		return this.pendingAssetInstance
-	}
-	nullifyPendingAssetInstance()
-	{
-		this.pendingAssetInstance = null
-	}
+	
 }
